@@ -91,6 +91,8 @@ export function TopSummary() {
         <span className="font-medium text-foreground">{hackathon.teamName}</span>
         <span className="text-muted-foreground">/</span>
         <span className="text-muted-foreground">{hackathon.hackathonName}</span>
+        <span className="hidden sm:inline text-muted-foreground">|</span>
+        <span className="hidden sm:inline font-mono text-[10px] text-primary tracking-wider">{hackathon.inviteCode}</span>
       </div>
 
       {/* Phase progress — linear steps */}

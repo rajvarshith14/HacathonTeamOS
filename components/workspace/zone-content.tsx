@@ -9,7 +9,6 @@ import {
   Presentation,
   CheckCircle2,
   Sparkles,
-  AlertCircle,
   Eye,
   Users,
   FileText,
@@ -18,8 +17,11 @@ import {
   Shield,
   ArrowRight,
   Clock,
+  Copy,
+  Share2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -115,34 +117,25 @@ function ActionCard({
 // ---------------------------------------------------------------------------
 
 function MissionControlZone() {
-  const { hackathon, setActiveZone } = useWorkspace()
+  const { hackathon, currentUser, setActiveZone } = useWorkspace()
   const online = hackathon.members.filter((m) => m.status === 'online').length
   const committed = hackathon.members.filter((m) => m.commitmentComplete).length
   const isSolo = hackathon.members.length <= 1
-  const allCommitted = committed === hackathon.members.length
-  const hasRoles = hackathon.members.some((m) => m.role !== null)
-  const allRoles = hackathon.members.every((m) => m.role !== null)
+  const allCommitted = committed === hackathon.members.length && hackathon.members.length > 0
 
-  // Determine the next action the team should take
+  // Determine the single next action
   function getNextAction(): { label: string; description: string; zone: WorkspaceZone } | null {
-    if (!hasRoles) {
+    if (currentUser && !currentUser.commitmentComplete) {
       return {
-        label: 'Claim roles',
-        description: 'No one has claimed a role yet. Assign roles so each member knows what to focus on.',
+        label: 'Set your role commitment',
+        description: 'You have not committed to a role yet. Define your role, deliverables, and responsibility.',
         zone: 'role-workspaces',
       }
     }
-    if (!allRoles) {
+    if (!allCommitted && hackathon.members.length > 1) {
       return {
-        label: 'Finish role assignments',
-        description: `${hackathon.members.filter((m) => !m.role).length} member(s) still need a role. Complete assignments to unlock focused workspaces.`,
-        zone: 'role-workspaces',
-      }
-    }
-    if (!allCommitted) {
-      return {
-        label: 'Complete commitments',
-        description: `${hackathon.members.filter((m) => !m.commitmentComplete).length} member(s) have not completed their commitment yet.`,
+        label: 'Waiting for teammates',
+        description: `${hackathon.members.filter((m) => !m.commitmentComplete).length} member(s) still need to complete their commitment.`,
         zone: 'role-workspaces',
       }
     }
@@ -151,16 +144,21 @@ function MissionControlZone() {
 
   const nextAction = getNextAction()
 
+  const copyInviteCode = () => {
+    navigator.clipboard.writeText(hackathon.inviteCode)
+    toast.success('Invite code copied!')
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      {/* Mission header — the orienting statement */}
+      {/* Mission header */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <LayoutDashboard className="size-4 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">Mission Control</h2>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          This is your team's starting point. Everything below reflects the real state of your hackathon — no simulated data.
+          This is your starting point. Everything below reflects the real state of your hackathon — no simulated data.
         </p>
       </div>
 
@@ -185,12 +183,31 @@ function MissionControlZone() {
               </span>
             </div>
             <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">Commitments</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">Your Role</span>
               <span className="text-xs text-foreground">
-                {allCommitted ? 'All complete' : `${committed} of ${hackathon.members.length}`}
+                {currentUser?.role ?? 'Not set yet'}
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Invite code share */}
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Share2 className="size-4 text-primary" aria-hidden="true" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-foreground">Invite teammates</span>
+              <span className="text-[11px] text-muted-foreground">
+                Share this code: <span className="font-mono font-bold text-primary tracking-wider">{hackathon.inviteCode}</span>
+              </span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={copyInviteCode} className="text-primary hover:text-primary">
+            <Copy className="size-3.5" aria-hidden="true" />
+            <span className="text-xs">Copy</span>
+          </Button>
         </div>
       </div>
 
@@ -202,14 +219,14 @@ function MissionControlZone() {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">Solo mode</span>
               <span className="text-[11px] leading-relaxed text-muted-foreground">
-                You are the only member. Everything works solo — invite teammates anytime by sharing your team code. Collaboration features activate when others join.
+                You are the only member right now. Everything works solo — invite teammates anytime using your invite code above. Collaboration features activate when others join.
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Next action — the single most important thing to do */}
+      {/* Next action */}
       {nextAction && (
         <button
           onClick={() => setActiveZone(nextAction.zone)}
@@ -226,22 +243,24 @@ function MissionControlZone() {
         </button>
       )}
 
-      {/* All caught up state */}
+      {/* All caught up */}
       {!nextAction && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 size-4 text-primary" aria-hidden="true" />
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-primary">Team is organized</span>
+              <span className="text-xs font-medium text-primary">Ready to build</span>
               <span className="text-[11px] leading-relaxed text-muted-foreground">
-                All roles are assigned and commitments are complete. Navigate to the Project Folder to start building, or use the AI Coach for guidance.
+                {currentUser?.commitment
+                  ? `You committed as ${currentUser.role} to deliver: "${currentUser.commitment.deliverables}". Navigate to the Project Folder to start building.`
+                  : 'Navigate to the Project Folder to start building, or use the AI Coach for guidance.'}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Team roster */}
+      {/* Team roster — only real members */}
       <div>
         <h3 className="mb-2 text-xs font-medium text-foreground">Team roster</h3>
         <div className="flex flex-col gap-1.5">
@@ -255,7 +274,10 @@ function MissionControlZone() {
                   className={`size-2 rounded-full ${m.status === 'online' ? 'bg-primary' : m.status === 'idle' ? 'bg-accent' : 'bg-muted-foreground/40'}`}
                   aria-hidden="true"
                 />
-                <span className="text-xs text-foreground">{m.name}</span>
+                <span className="text-xs text-foreground">
+                  {m.name}
+                  {m.isCurrentUser && <span className="text-muted-foreground"> (you)</span>}
+                </span>
                 {m.role ? (
                   <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
                 ) : (
@@ -274,7 +296,7 @@ function MissionControlZone() {
         </div>
       </div>
 
-      {/* Workspace flow explanation — always visible as orientation */}
+      {/* Workspace flow */}
       <div className="rounded-lg border border-border/50 bg-card/50 p-4">
         <h3 className="mb-3 text-xs font-medium text-foreground">How this workspace works</h3>
         <div className="flex flex-col gap-2">
@@ -332,7 +354,7 @@ function SharedAIZone() {
               <Badge variant="outline" className="text-[10px] text-muted-foreground">Observing</Badge>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              I am your team's AI Coach. Right now I am observing your workspace to build context. Once I see enough real activity — commits, decisions, role assignments, file changes — I will start offering targeted suggestions.
+              I am your team&apos;s AI Coach. Right now I am observing your workspace to build context. Once I see enough real activity — role commitments, file changes, decisions — I will start offering targeted suggestions.
             </p>
             <Separator className="bg-border/30" />
             <div className="flex flex-col gap-1.5">
@@ -357,7 +379,6 @@ function SharedAIZone() {
       </div>
 
       {/* Prompt input placeholder */}
-      {/* TODO: Wire real AI chat input — POST /api/ai/message with team context */}
       <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
         <p className="text-xs text-muted-foreground">
           You can ask the AI Coach anything here. All messages are shared with the entire team — there are no private conversations.
@@ -412,17 +433,13 @@ function ProjectFolderZone() {
 
       <Separator className="bg-border/30" />
 
-      {/* Threaded comments — empty state */}
-      <div>
-        <h3 className="mb-2 text-xs font-medium text-foreground">Threaded comments</h3>
-        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <MessageSquare className="size-5 text-muted-foreground/30" aria-hidden="true" />
-            <p className="text-[11px] text-muted-foreground">
-              No comments yet. As your team adds files, threaded conversations will appear here for each artifact.
-            </p>
-          </div>
-          {/* TODO: Wire threaded comments to POST /api/files/:fileId/comments */}
+      {/* Empty state */}
+      <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-6">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <FolderOpen className="size-6 text-muted-foreground/30" aria-hidden="true" />
+          <p className="text-xs text-muted-foreground">
+            No files have been added yet. When your team starts building, shared project files will appear here. Use the suggested structure above as a starting point.
+          </p>
         </div>
       </div>
     </div>
@@ -434,8 +451,9 @@ function ProjectFolderZone() {
 // ---------------------------------------------------------------------------
 
 function RoleWorkspacesZone() {
-  const { hackathon } = useWorkspace()
-  const roles = hackathon.members.filter((m) => m.role)
+  const { hackathon, currentUser } = useWorkspace()
+  const membersWithRoles = hackathon.members.filter((m) => m.role && m.role !== 'Joined — No Commitment')
+  const membersWithoutRoles = hackathon.members.filter((m) => !m.role)
 
   return (
     <div className="flex flex-col gap-5">
@@ -443,29 +461,49 @@ function RoleWorkspacesZone() {
         icon={UserCog}
         title="Role Workspaces"
         stage="Organize"
-        description="Each role sees filtered tasks, relevant files, and role-specific chat. Switch perspectives to understand what each teammate is focused on."
+        description="Each role has a dedicated space showing filtered tasks, relevant files, and role-specific chat. Roles are defined during commitment."
       />
 
-      {roles.length > 0 ? (
+      {/* Current user commitment display */}
+      {currentUser?.commitment && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-primary/10 text-primary text-[10px] border-primary/20">{currentUser.role}</Badge>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {currentUser.commitment.responsibilityShare}% responsibility
+              </span>
+            </div>
+            <p className="text-xs text-foreground">{currentUser.commitment.deliverables}</p>
+          </div>
+        </div>
+      )}
+
+      {membersWithRoles.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          {roles.map((m) => (
-            <button
+          {membersWithRoles.map((m) => (
+            <div
               key={m.id}
-              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-card/50 p-4 text-left transition-colors hover:border-primary/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => {
-                // TODO: Open role-specific workspace view
-                toast.info(`Opening ${m.role} workspace for ${m.name}.`)
-              }}
+              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-card/50 p-4"
             >
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
                 <div className={`size-2 rounded-full ${m.status === 'online' ? 'bg-primary' : m.status === 'idle' ? 'bg-accent' : 'bg-muted-foreground/40'}`} aria-hidden="true" />
               </div>
-              <span className="text-xs font-medium text-foreground">{m.name}</span>
-              <span className="text-[11px] text-muted-foreground">
-                {m.commitmentComplete ? 'Commitment complete' : 'Commitment pending'}
+              <span className="text-xs font-medium text-foreground">
+                {m.name}
+                {m.isCurrentUser && <span className="text-muted-foreground"> (you)</span>}
               </span>
-            </button>
+              {m.commitment ? (
+                <span className="text-[11px] text-muted-foreground">
+                  Delivering: {m.commitment.deliverables}
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">
+                  {m.commitmentComplete ? 'Committed' : 'Commitment pending'}
+                </span>
+              )}
+            </div>
           ))}
         </div>
       ) : (
@@ -473,18 +511,18 @@ function RoleWorkspacesZone() {
           <div className="flex flex-col items-center gap-2 text-center">
             <UserCog className="size-5 text-muted-foreground/30" aria-hidden="true" />
             <p className="text-[11px] text-muted-foreground">
-              No roles claimed yet. Once team members select their roles, their dedicated workspaces will appear here.
+              No roles have been claimed yet. Once team members complete their role commitment, their dedicated workspaces will appear here.
             </p>
           </div>
         </div>
       )}
 
-      {hackathon.members.filter((m) => !m.role).length > 0 && (
-        <div className="rounded-md border border-dashed border-border/50 bg-card/30 p-3">
+      {membersWithoutRoles.length > 0 && (
+        <div className="rounded-md border border-dashed border-accent/30 bg-accent/5 p-3">
           <div className="flex items-center gap-2">
-            <AlertCircle className="size-3.5 text-accent" aria-hidden="true" />
+            <Users className="size-3.5 text-accent" aria-hidden="true" />
             <span className="text-xs text-muted-foreground">
-              {hackathon.members.filter((m) => !m.role).length} member(s) have not claimed a role yet.
+              {membersWithoutRoles.length} member(s) have not set a role yet.
             </span>
           </div>
         </div>
@@ -513,10 +551,9 @@ function LiveFeedZone() {
         icon={Radio}
         title="Live Feed"
         stage="Build"
-        description="Real-time stream of everything happening in this workspace. Decisions, commits, and AI insights all in one timeline."
+        description="Real-time stream of everything happening in this workspace. Only real events appear here — no simulated activity."
       />
 
-      {/* TODO: Subscribe to real-time activity events via WebSocket/Supabase Realtime */}
       {activity.length > 0 ? (
         <div className="flex flex-col gap-2">
           {activity.map((event) => {
@@ -542,7 +579,7 @@ function LiveFeedZone() {
         <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-6">
           <div className="flex flex-col items-center gap-2 text-center">
             <Radio className="size-5 text-muted-foreground/30" aria-hidden="true" />
-            <p className="text-xs text-muted-foreground">No activity yet. Events will appear here as your team takes actions — joining, committing, editing, and building.</p>
+            <p className="text-xs text-muted-foreground">No activity yet. Events will appear here as your team takes actions — joining, committing, and building.</p>
           </div>
         </div>
       )}
@@ -574,14 +611,16 @@ function PresentationStudioZone() {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">Not yet — focus on building first</span>
               <span className="text-[11px] leading-relaxed text-muted-foreground">
-                This zone becomes useful once you have project artifacts to present. Right now you are in the {hackathon.phase} phase. When you are closer to the deadline, the AI Coach will help you structure a compelling demo.
+                {'This zone becomes useful once you have project artifacts to present. You are currently in the '}
+                {hackathon.phase}
+                {' phase. When you are closer to the deadline, the AI Coach will help you structure a compelling demo.'}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Slide outline — always shown as a structural reference */}
+      {/* Slide outline */}
       <div>
         <h3 className="mb-2 text-xs font-medium text-foreground">Suggested slide outline</h3>
         <div className="flex flex-col gap-1">
@@ -601,7 +640,6 @@ function PresentationStudioZone() {
             label="Generate demo script"
             description="AI creates a structured walkthrough based on your current artifacts."
             onClick={() => {
-              // TODO: POST /api/ai/demo-script with project artifacts
               toast.info('AI would generate a demo script from your project artifacts.')
             }}
           />
@@ -610,7 +648,6 @@ function PresentationStudioZone() {
             label="Preview presentation"
             description="Run through your slides and demo flow in presentation mode."
             onClick={() => {
-              // TODO: Open presentation preview overlay
               toast.info('Presentation preview would show your slides and flow.')
             }}
           />
@@ -627,7 +664,6 @@ function PresentationStudioZone() {
 function SubmissionReadinessZone() {
   const { hackathon } = useWorkspace()
 
-  // These items track real states derived from workspace data
   const hasAllRoles = hackathon.members.every((m) => m.role !== null)
   const hasAllCommitments = hackathon.members.every((m) => m.commitmentComplete)
 
@@ -648,7 +684,7 @@ function SubmissionReadinessZone() {
         icon={CheckCircle2}
         title="Submission Readiness"
         stage="Deliver"
-        description="Track every requirement for a complete submission. Items here reflect your actual workspace state."
+        description="Track every requirement for a complete submission. Items here reflect your actual workspace state — nothing is fabricated."
       />
 
       <div className="rounded-lg border border-border/50 bg-card/50 p-3">
@@ -670,10 +706,10 @@ function SubmissionReadinessZone() {
         </div>
       </div>
 
-      {doneCount === 0 && (
+      {doneCount < checklist.length && (
         <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            No submission items complete yet. This checklist will update automatically as your team progresses. Focus on building first — come back here before the deadline.
+            This checklist updates automatically as your team progresses. Focus on building first — come back here before the deadline to verify everything is ready.
           </p>
         </div>
       )}
@@ -683,7 +719,6 @@ function SubmissionReadinessZone() {
         label="Run submission validator"
         description="AI checks all required fields and flags anything missing before you submit."
         onClick={() => {
-          // TODO: POST /api/ai/validate-submission with project state
           toast.info('Submission validator would check all requirements.')
         }}
       />

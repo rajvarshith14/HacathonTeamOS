@@ -13,6 +13,8 @@ import type {
   WorkspaceZone,
   QuickNote,
   ActivityEvent,
+  RoleCommitment,
+  Member,
 } from './workspace-types'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,14 @@ interface WorkspaceCtx {
   addNote: (text: string) => void
   deleteNote: (id: string) => void
   activity: ActivityEvent[]
+  /** Save a role commitment for the current user */
+  saveCommitment: (commitment: RoleCommitment) => void
+  /** Skip commitment — marks as "Joined — No Commitment" */
+  skipCommitment: () => void
+  /** Whether the current user has completed (or skipped) commitment */
+  currentUserCommitted: boolean
+  /** The current user member object */
+  currentUser: Member | undefined
 }
 
 const WorkspaceContext = createContext<WorkspaceCtx | null>(null)
@@ -38,33 +48,6 @@ export function useWorkspace() {
 }
 
 // ---------------------------------------------------------------------------
-// localStorage helpers for quick notes
-// ---------------------------------------------------------------------------
-
-const NOTES_KEY = 'hackathon-os-quick-notes'
-
-function loadNotes(): QuickNote[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(NOTES_KEY)
-    return raw ? (JSON.parse(raw) as QuickNote[]) : []
-  } catch {
-    return []
-  }
-}
-
-function persistNotes(notes: QuickNote[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(NOTES_KEY, JSON.stringify(notes))
-}
-
-// ---------------------------------------------------------------------------
-// Activity feed — starts empty; populated by real events only
-// ---------------------------------------------------------------------------
-// TODO: Replace with real-time activity subscription (e.g. Supabase Realtime)
-// that pushes actual events as they happen in the workspace.
-
-// ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
@@ -73,27 +56,92 @@ interface WorkspaceProviderProps {
   children: ReactNode
 }
 
-export function WorkspaceProvider({ hackathon, children }: WorkspaceProviderProps) {
+export function WorkspaceProvider({ hackathon: initialHackathon, children }: WorkspaceProviderProps) {
+  const [hackathon, setHackathon] = useState<HackathonContext>(initialHackathon)
   const [activeZone, setActiveZone] = useState<WorkspaceZone>('mission-control')
   const [notes, setNotes] = useState<QuickNote[]>([])
-  const [activity] = useState<ActivityEvent[]>([])
+  const [activity, setActivity] = useState<ActivityEvent[]>([])
 
-  // Load notes from localStorage on mount (client only)
+  // Derive current user
+  const currentUser = hackathon.members.find((m) => m.isCurrentUser)
+  const currentUserCommitted = currentUser?.commitmentComplete ?? false
+
+  // Seed initial activity event for the user joining
   useEffect(() => {
-    setNotes(loadNotes())
+    if (currentUser) {
+      setActivity([{
+        id: crypto.randomUUID(),
+        type: 'member-joined',
+        actor: currentUser.name,
+        description: 'joined the team',
+        timestamp: new Date().toISOString(),
+      }])
+    }
+    // Run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // TODO: subscribeToRealtime() — connect to real-time presence channel
-  // (e.g. Supabase Realtime or WebSocket). Will emit member-status-changed,
-  // member-joined, member-left events to update the members list live.
-  useEffect(() => {
-    // TODO: Subscribe to realtime presence updates here
-    // TODO: Subscribe to realtime activity feed events here
-    // TODO: Subscribe to AI coach message stream here
-    return () => {
-      // TODO: Unsubscribe from all realtime channels on unmount
-    }
-  }, [hackathon.teamId])
+  const addActivityEvent = useCallback((event: Omit<ActivityEvent, 'id' | 'timestamp'>) => {
+    setActivity((prev) => [{
+      ...event,
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+    }, ...prev])
+  }, [])
+
+  const saveCommitment = useCallback((commitment: RoleCommitment) => {
+    setHackathon((prev) => {
+      const members = prev.members.map((m) =>
+        m.isCurrentUser
+          ? {
+              ...m,
+              role: commitment.role,
+              commitment,
+              commitmentComplete: true,
+            }
+          : m
+      )
+      const allComplete = members.every((m) => m.commitmentComplete)
+      return {
+        ...prev,
+        members,
+        onboardingState: allComplete ? 'onboarding-complete' : prev.onboardingState,
+      }
+    })
+
+    addActivityEvent({
+      type: 'commitment-saved',
+      actor: currentUser?.name ?? 'You',
+      description: `committed as ${commitment.role} — "${commitment.deliverables}"`,
+    })
+  }, [currentUser?.name, addActivityEvent])
+
+  const skipCommitment = useCallback(() => {
+    setHackathon((prev) => {
+      const members = prev.members.map((m) =>
+        m.isCurrentUser
+          ? {
+              ...m,
+              role: 'Joined — No Commitment',
+              commitment: null,
+              commitmentComplete: true,
+            }
+          : m
+      )
+      const allComplete = members.every((m) => m.commitmentComplete)
+      return {
+        ...prev,
+        members,
+        onboardingState: allComplete ? 'onboarding-complete' : prev.onboardingState,
+      }
+    })
+
+    addActivityEvent({
+      type: 'member-joined',
+      actor: currentUser?.name ?? 'You',
+      description: 'joined without a role commitment',
+    })
+  }, [currentUser?.name, addActivityEvent])
 
   const addNote = useCallback((text: string) => {
     const note: QuickNote = {
@@ -101,21 +149,11 @@ export function WorkspaceProvider({ hackathon, children }: WorkspaceProviderProp
       text,
       createdAt: new Date().toISOString(),
     }
-    setNotes((prev) => {
-      const next = [note, ...prev]
-      persistNotes(next)
-      // TODO: Sync note to server storage (e.g. POST /api/notes)
-      return next
-    })
+    setNotes((prev) => [note, ...prev])
   }, [])
 
   const deleteNote = useCallback((id: string) => {
-    setNotes((prev) => {
-      const next = prev.filter((n) => n.id !== id)
-      persistNotes(next)
-      // TODO: Delete note from server storage (e.g. DELETE /api/notes/:id)
-      return next
-    })
+    setNotes((prev) => prev.filter((n) => n.id !== id))
   }, [])
 
   return (
@@ -128,6 +166,10 @@ export function WorkspaceProvider({ hackathon, children }: WorkspaceProviderProp
         addNote,
         deleteNote,
         activity,
+        saveCommitment,
+        skipCommitment,
+        currentUserCommitted,
+        currentUser,
       }}
     >
       {children}

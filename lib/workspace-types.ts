@@ -12,6 +12,21 @@ export type OnboardingState =
 
 export type MemberStatus = 'online' | 'idle' | 'offline'
 
+// ---------------------------------------------------------------------------
+// Role Commitment — what each user fills during onboarding
+// ---------------------------------------------------------------------------
+
+export interface RoleCommitment {
+  role: string                 // free-text role title, e.g. "Frontend Lead"
+  deliverables: string         // what they will build
+  responsibilityShare: number  // 0–100 percentage
+  accepted: boolean            // user accepted responsibility
+}
+
+// ---------------------------------------------------------------------------
+// Member
+// ---------------------------------------------------------------------------
+
 export interface Member {
   id: string
   name: string
@@ -20,13 +35,20 @@ export interface Member {
   status: MemberStatus
   timezone: string             // IANA timezone id
   commitmentComplete: boolean
+  commitment: RoleCommitment | null  // null = not committed yet
+  isCurrentUser: boolean       // true for the logged-in user
 }
+
+// ---------------------------------------------------------------------------
+// Hackathon context
+// ---------------------------------------------------------------------------
 
 export interface HackathonContext {
   hackathonId: string
   hackathonName: string
   teamId: string
   teamName: string
+  inviteCode: string           // for sharing with teammates
   startTime: string            // ISO-8601
   endTime: string              // ISO-8601
   timezone: string             // IANA timezone id

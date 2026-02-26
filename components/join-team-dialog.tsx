@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -20,6 +20,8 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp'
 import { joinTeam, type JoinTeamResponse } from '@/lib/mock-api'
+import { joinHackathonContext } from '@/lib/mock-workspace'
+import type { HackathonContext } from '@/lib/workspace-types'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -28,18 +30,22 @@ import { joinTeam, type JoinTeamResponse } from '@/lib/mock-api'
 interface JoinTeamDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onTeamReady: (hackathon: HackathonContext, userName: string) => void
 }
 
-export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
-  const router = useRouter()
+export function JoinTeamDialog({ open, onOpenChange, onTeamReady }: JoinTeamDialogProps) {
+  const [userName, setUserName] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
+  const [nameError, setNameError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<JoinTeamResponse | null>(null)
 
   const resetForm = useCallback(() => {
+    setUserName('')
     setCode('')
     setError('')
+    setNameError('')
     setSubmitting(false)
     setResult(null)
   }, [])
@@ -55,20 +61,27 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (code.length < 6) {
-      setError('Please enter the full 6-character invite code.')
-      return
+    let hasError = false
+    if (!userName.trim()) {
+      setNameError('Your name is required.')
+      hasError = true
+    } else {
+      setNameError('')
     }
 
-    setError('')
+    if (code.length < 6) {
+      setError('Please enter the full 6-character invite code.')
+      hasError = true
+    } else {
+      setError('')
+    }
+
+    if (hasError) return
+
     setSubmitting(true)
 
     try {
-      // TODO: Replace joinTeam() with real API call. The user should be
-      // authenticated before joining, or prompted to create an account.
-      // After joining, navigate to /workspace/[teamId].
       const response = await joinTeam({ inviteCode: code.toUpperCase() })
-
       setResult(response)
       toast.success(`Joined ${response.teamName}!`)
     } catch (err) {
@@ -76,6 +89,19 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEnterWorkspace = () => {
+    if (!result) return
+    const hackathon = joinHackathonContext({
+      teamName: result.teamName,
+      hackathonName: result.hackathonName,
+      teamId: result.teamId,
+      inviteCode: code.toUpperCase(),
+      userName: userName.trim(),
+    })
+    handleOpenChange(false)
+    onTeamReady(hackathon, userName.trim())
   }
 
   // ---------------------------------------------------------------------------
@@ -91,8 +117,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
               You&apos;re In
             </DialogTitle>
             <DialogDescription>
-              Welcome to {result.teamName}. {result.memberCount} teammates are
-              already here.
+              Welcome to {result.teamName}.
             </DialogDescription>
           </DialogHeader>
 
@@ -104,21 +129,16 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
               {result.hackathonName}
             </p>
             <p className="text-xs text-muted-foreground">
-              {/* TODO: Live member count via real-time subscriptions. */}
-              {result.memberCount} teammates already here
+              You will now set your role commitment before entering the workspace.
             </p>
           </div>
 
           <DialogFooter>
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => {
-                // TODO: Navigate to /workspace/[teamId] with real teamId
-                handleOpenChange(false)
-                router.push('/workspace')
-              }}
+              onClick={handleEnterWorkspace}
             >
-              Enter Workspace
+              Continue to Role Commitment
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -136,15 +156,33 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
         <DialogHeader>
           <DialogTitle className="text-foreground">Join a Hackathon</DialogTitle>
           <DialogDescription>
-            Enter the 6-character invite code shared by your team.
+            Enter your name and the 6-character invite code shared by your team.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+          {/* User name */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="join-user-name">Your Name</Label>
+            <Input
+              id="join-user-name"
+              placeholder="e.g. Sam Rivera"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              aria-invalid={!!nameError}
+              aria-describedby={nameError ? 'err-join-name' : undefined}
+              autoFocus
+            />
+            {nameError && (
+              <p id="err-join-name" className="text-xs text-destructive-foreground" role="alert">
+                {nameError}
+              </p>
+            )}
+          </div>
+
+          {/* Invite code */}
           <div className="flex flex-col items-center gap-3">
-            <Label htmlFor="join-code" className="sr-only">
-              Invite Code
-            </Label>
+            <Label htmlFor="join-code">Invite Code</Label>
             <InputOTP
               maxLength={6}
               value={code}

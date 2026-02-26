@@ -80,14 +80,13 @@ export function NavRail({ collapsed, onToggle }: NavRailProps) {
   const { activeZone, setActiveZone, hackathon } = useWorkspace()
 
   // Determine which zones have real data to drive visual dimming
-  const hasRoles = hackathon.members.some((m) => m.role !== null)
-  const hasActivity = false // activity feed starts empty; will be true once wired
+  const hasRoles = hackathon.members.some((m) => m.role !== null && m.role !== 'Joined — No Commitment')
   const zoneHasData: Partial<Record<WorkspaceZone, boolean>> = {
     'mission-control':      true,  // always available
     'role-workspaces':      hasRoles,
     'shared-ai':            false, // no conversations yet
     'project-folder':       false, // no files yet
-    'live-feed':            hasActivity,
+    'live-feed':            true,  // shows real activity events
     'presentation-studio':  false, // no slides yet
     'submission-readiness':  true,  // checklist always useful
   }

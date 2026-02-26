@@ -114,7 +114,10 @@ export function CollabPanel() {
                     />
                   </div>
                   <div className="flex flex-1 flex-col">
-                    <span className="text-[11px] font-medium text-foreground leading-tight">{member.name}</span>
+                    <span className="text-[11px] font-medium text-foreground leading-tight">
+                      {member.name}
+                      {member.isCurrentUser && <span className="text-muted-foreground"> (you)</span>}
+                    </span>
                     <span className="text-[10px] text-muted-foreground">
                       {formatLocalTime(member.timezone)}
                     </span>

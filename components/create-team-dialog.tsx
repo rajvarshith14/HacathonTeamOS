@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Copy, Loader2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { createTeam, type CreateTeamResponse } from '@/lib/mock-api'
+import { createHackathonContext } from '@/lib/mock-workspace'
+import type { HackathonContext } from '@/lib/workspace-types'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,7 +44,7 @@ const TIMEZONES = [
   'Australia/Sydney',
 ] as const
 
-const TEAM_SIZES = [2, 3, 4, 5, 6, 8, 10] as const
+const TEAM_SIZES = [1, 2, 3, 4, 5, 6, 8, 10] as const
 
 function getDefaultDatetimeLocal(offset: number): string {
   const d = new Date(Date.now() + offset)
@@ -56,6 +57,7 @@ function getDefaultDatetimeLocal(offset: number): string {
 // ---------------------------------------------------------------------------
 
 interface FormErrors {
+  userName?: string
   teamName?: string
   hackathonName?: string
   startTime?: string
@@ -65,6 +67,7 @@ interface FormErrors {
 }
 
 function validate(fields: {
+  userName: string
   teamName: string
   hackathonName: string
   startTime: string
@@ -73,6 +76,10 @@ function validate(fields: {
   teamSize: string
 }): FormErrors {
   const errors: FormErrors = {}
+
+  if (!fields.userName.trim()) {
+    errors.userName = 'Your name is required.'
+  }
 
   if (!fields.teamName.trim()) {
     errors.teamName = 'Team name is required.'
@@ -112,11 +119,12 @@ function validate(fields: {
 interface CreateTeamDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onTeamReady: (hackathon: HackathonContext, userName: string) => void
 }
 
-export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) {
-  const router = useRouter()
+export function CreateTeamDialog({ open, onOpenChange, onTeamReady }: CreateTeamDialogProps) {
   // Form state
+  const [userName, setUserName] = useState('')
   const [teamName, setTeamName] = useState('')
   const [hackathonName, setHackathonName] = useState('')
   const [startTime, setStartTime] = useState(getDefaultDatetimeLocal(0))
@@ -132,6 +140,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
   const [result, setResult] = useState<CreateTeamResponse | null>(null)
 
   const resetForm = useCallback(() => {
+    setUserName('')
     setTeamName('')
     setHackathonName('')
     setStartTime(getDefaultDatetimeLocal(0))
@@ -155,6 +164,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     e.preventDefault()
 
     const formErrors = validate({
+      userName,
       teamName,
       hackathonName,
       startTime,
@@ -172,9 +182,6 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     setSubmitting(true)
 
     try {
-      // TODO: Replace createTeam() with real API call. Also wire up
-      // authentication here — the user should be signed in before creating
-      // a team, or be prompted to create an account post-creation.
       const response = await createTeam({
         teamName: teamName.trim(),
         hackathonName: hackathonName.trim(),
@@ -202,8 +209,23 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     }
   }
 
+  const handleEnterWorkspace = () => {
+    if (!result) return
+    const hackathon = createHackathonContext({
+      teamName: result.teamName,
+      hackathonName: result.hackathonName,
+      startTime: new Date(startTime).toISOString(),
+      endTime: new Date(endTime).toISOString(),
+      timezone,
+      inviteCode: result.inviteCode,
+      userName: userName.trim(),
+    })
+    handleOpenChange(false)
+    onTeamReady(hackathon, userName.trim())
+  }
+
   // ---------------------------------------------------------------------------
-  // Success state
+  // Success state — show invite code, then proceed
   // ---------------------------------------------------------------------------
 
   if (result) {
@@ -235,8 +257,6 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground">
-              {/* TODO: Once real-time subscriptions are set up, navigating to
-                  the workspace will show teammates arriving in real time. */}
               Your workspace is ready. Share this code so your team can join.
             </p>
           </div>
@@ -244,11 +264,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
           <DialogFooter>
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => {
-                // TODO: Navigate to /workspace/[teamId] with real teamId
-                handleOpenChange(false)
-                router.push('/workspace')
-              }}
+              onClick={handleEnterWorkspace}
             >
               Enter Workspace
             </Button>
@@ -273,6 +289,25 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+          {/* Your Name */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="create-user-name">Your Name</Label>
+            <Input
+              id="create-user-name"
+              placeholder="e.g. Alex Chen"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              aria-invalid={!!errors.userName}
+              aria-describedby={errors.userName ? 'err-user-name' : undefined}
+              autoFocus
+            />
+            {errors.userName && (
+              <p id="err-user-name" className="text-xs text-destructive-foreground">
+                {errors.userName}
+              </p>
+            )}
+          </div>
+
           {/* Team Name */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="create-team-name">Team Name</Label>
@@ -283,7 +318,6 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               onChange={(e) => setTeamName(e.target.value)}
               aria-invalid={!!errors.teamName}
               aria-describedby={errors.teamName ? 'err-team-name' : undefined}
-              autoFocus
             />
             {errors.teamName && (
               <p id="err-team-name" className="text-xs text-destructive-foreground">
@@ -400,7 +434,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
                 <SelectContent>
                   {TEAM_SIZES.map((size) => (
                     <SelectItem key={size} value={String(size)}>
-                      {size} {size === 2 ? 'people' : 'people'}
+                      {size === 1 ? 'Solo' : `${size} people`}
                     </SelectItem>
                   ))}
                 </SelectContent>
