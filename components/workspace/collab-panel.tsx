@@ -203,23 +203,29 @@ export function CollabPanel() {
               Recent activity
             </h3>
             {/* TODO: Subscribe to realtime activity events to update this feed live */}
-            <div className="flex flex-col gap-1.5">
-              {activity.slice(0, 5).map((event) => {
-                const Icon = typeIcons[event.type] || Radio
-                return (
-                  <div key={event.id} className="flex items-start gap-2 rounded-md px-2 py-1.5">
-                    <Icon className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[11px] text-foreground leading-tight">
-                        <span className="font-medium">{event.actor}</span>{' '}
-                        <span className="text-muted-foreground">{event.description}</span>
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/60">{getRelativeTime(event.timestamp)}</span>
+            {activity.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {activity.slice(0, 5).map((event) => {
+                  const Icon = typeIcons[event.type] || Radio
+                  return (
+                    <div key={event.id} className="flex items-start gap-2 rounded-md px-2 py-1.5">
+                      <Icon className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] text-foreground leading-tight">
+                          <span className="font-medium">{event.actor}</span>{' '}
+                          <span className="text-muted-foreground">{event.description}</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/60">{getRelativeTime(event.timestamp)}</span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground/60 py-2">
+                No activity yet. Events will appear here as your team takes action.
+              </p>
+            )}
           </section>
         </div>
       </ScrollArea>

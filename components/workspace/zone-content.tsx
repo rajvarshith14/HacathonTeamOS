@@ -11,16 +11,12 @@ import {
   Sparkles,
   AlertCircle,
   Eye,
-  Bell,
   Users,
-  GitCommit,
-  Play,
   FileText,
   MessageSquare,
   FolderTree,
   Shield,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -113,82 +109,60 @@ function MissionControlZone() {
   const { hackathon } = useWorkspace()
   const online = hackathon.members.filter((m) => m.status === 'online').length
   const committed = hackathon.members.filter((m) => m.commitmentComplete).length
-  const uncommitted = hackathon.members.filter((m) => !m.commitmentComplete)
+  const isSolo = hackathon.members.length <= 1
+  const allCommitted = committed === hackathon.members.length
 
   return (
     <div className="flex flex-col gap-5">
       <ZoneHeader
         icon={LayoutDashboard}
         title="Mission Control"
-        description="High-level team alignment. Track health, run quick actions, and monitor onboarding."
+        description="Your team's live status. Everything here reflects real activity — nothing is simulated."
       />
 
-      {/* Health indicators */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      {/* Team status */}
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-card/50 p-3">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Members online
+            Team members
           </span>
           <span className="text-lg font-bold text-foreground">
-            {online}<span className="text-sm font-normal text-muted-foreground">/{hackathon.members.length}</span>
+            {online} <span className="text-sm font-normal text-muted-foreground">online</span>
+            <span className="text-sm font-normal text-muted-foreground"> / {hackathon.members.length} total</span>
           </span>
         </div>
         <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-card/50 p-3">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             Commitments
           </span>
-          <span className="text-lg font-bold text-foreground">
-            {committed}<span className="text-sm font-normal text-muted-foreground">/{hackathon.members.length}</span>
-          </span>
-        </div>
-        <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-card/50 p-3">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Demo-ready score
-          </span>
-          {/* TODO: Compute real demo-ready score from artifacts, tests, and completeness */}
-          <span className="text-lg font-bold text-accent">
-            Early
-          </span>
+          {allCommitted ? (
+            <span className="text-lg font-bold text-primary">All complete</span>
+          ) : (
+            <span className="text-lg font-bold text-foreground">
+              {committed}<span className="text-sm font-normal text-muted-foreground"> of {hackathon.members.length} complete</span>
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div>
-        <h3 className="mb-2 text-xs font-medium text-foreground">Quick actions</h3>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <ActionCard
-            icon={Sparkles}
-            label="Run AI Review"
-            description="Let the Coach audit your current progress and suggest next steps."
-            onClick={() => {
-              // TODO: Trigger AI Coach review — POST /api/ai/review with current project state
-              toast.info('AI Review would analyze your project and provide suggestions.')
-            }}
-          />
-          <ActionCard
-            icon={Play}
-            label="Start demo preview"
-            description="Launch a quick walkthrough of your current build."
-            onClick={() => {
-              // TODO: Open a demo preview overlay with current artifacts
-              toast.info('Demo preview would show your end-to-end flow.')
-            }}
-          />
-          <ActionCard
-            icon={Bell}
-            label="Remind team"
-            description="Nudge teammates who have pending commitments."
-            onClick={() => {
-              // TODO: Send push/email notifications to uncommitted members
-              toast.info(`Reminders sent to ${uncommitted.length} teammate(s).`)
-            }}
-          />
+      {/* Solo mode notice */}
+      {isSolo && (
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+          <div className="flex items-start gap-3">
+            <Users className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">You are working solo</span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">
+                You can invite teammates anytime by sharing your team invite code. The workspace works fine solo — collaboration features will activate when others join.
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Onboarding checklist */}
+      {/* Team roster */}
       <div>
-        <h3 className="mb-2 text-xs font-medium text-foreground">Onboarding checklist</h3>
+        <h3 className="mb-2 text-xs font-medium text-foreground">Team roster</h3>
         <div className="flex flex-col gap-1.5">
           {hackathon.members.map((m) => (
             <div
@@ -197,39 +171,51 @@ function MissionControlZone() {
             >
               <div className="flex items-center gap-2">
                 <div
-                  className={`size-2 rounded-full ${m.commitmentComplete ? 'bg-primary' : 'bg-muted-foreground/40'}`}
+                  className={`size-2 rounded-full ${m.status === 'online' ? 'bg-primary' : m.status === 'idle' ? 'bg-accent' : 'bg-muted-foreground/40'}`}
                   aria-hidden="true"
                 />
                 <span className="text-xs text-foreground">{m.name}</span>
-                {m.role && (
+                {m.role ? (
                   <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
-                )}
-                {!m.role && (
-                  <Badge variant="outline" className="text-[10px] text-muted-foreground">No role</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">No role yet</Badge>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
                 {m.commitmentComplete ? (
                   <CheckCircle2 className="size-3.5 text-primary" aria-label="Commitment complete" />
                 ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      // TODO: Send targeted reminder or assign temporary owner
-                      toast.info(`Reminded ${m.name} to complete commitment.`)
-                    }}
-                  >
-                    <Bell className="size-3 mr-1" aria-hidden="true" />
-                    Remind
-                  </Button>
+                  <span className="text-[10px] text-muted-foreground">Commitment pending</span>
                 )}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Getting started guidance — only show when workspace is fresh */}
+      {!allCommitted && (
+        <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+          <h3 className="mb-2 text-xs font-medium text-foreground">Getting started</h3>
+          <div className="flex flex-col gap-2 text-[11px] leading-relaxed text-muted-foreground">
+            <p>This workspace becomes more useful as your team takes action. Here is what contributes to team readiness:</p>
+            <ul className="flex flex-col gap-1.5 ml-3">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                <span>Each member claims a role and completes their commitment</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                <span>Project artifacts are added to the Project Folder</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                <span>The AI Coach observes enough activity to offer meaningful suggestions</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -239,29 +225,6 @@ function MissionControlZone() {
 // ---------------------------------------------------------------------------
 
 function SharedAIZone() {
-  const EXAMPLE_SUGGESTIONS = [
-    {
-      id: 's1',
-      prompt: 'How should we structure the API layer for our hackathon project?',
-      response: {
-        why: 'Your backend has no clear separation between routes and business logic.',
-        what: 'Create a /services directory for business logic and keep /api routes thin.',
-        risk: 'Without separation, debugging during the final hours will be painful.',
-        links: 'Clean Architecture patterns, Express middleware docs',
-      },
-    },
-    {
-      id: 's2',
-      prompt: 'What should we prioritize in the next 2 hours?',
-      response: {
-        why: 'You have 32h remaining and no end-to-end flow yet.',
-        what: 'Get the happy-path working: signup -> dashboard -> one core action.',
-        risk: 'Building features without a connected flow means no demo.',
-        links: 'Demo Day best practices, MVP prioritization',
-      },
-    },
-  ]
-
   return (
     <div className="flex flex-col gap-5">
       <ZoneHeader
@@ -270,39 +233,56 @@ function SharedAIZone() {
         description="Every prompt and response is visible to the whole team. The AI Coach builds on everyone's thinking — no siloed conversations."
       />
 
+      {/* AI Coach introduction */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <Sparkles className="size-4 text-primary" aria-hidden="true" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
+                AI Coach
+              </span>
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">Observing</Badge>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              I am your team's AI Coach. Right now I am observing your workspace to build context. Once I see enough real activity — commits, decisions, role assignments, file changes — I will start offering targeted suggestions.
+            </p>
+            <Separator className="bg-border/30" />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-medium text-foreground">What I watch for:</span>
+              <ul className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Eye className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                  <span>Team structure — who has claimed roles and committed</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Eye className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                  <span>Time pressure — how deadlines relate to remaining work</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Eye className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                  <span>Gaps and risks — missing artifacts, blocked teammates, unclear priorities</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Prompt input placeholder */}
       {/* TODO: Wire real AI chat input — POST /api/ai/message with team context */}
       <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
         <p className="text-xs text-muted-foreground">
-          AI prompt input will appear here. All messages are team-visible by default.
+          You can ask the AI Coach anything here. All messages are shared with the entire team — there are no private conversations.
         </p>
       </div>
 
-      <Separator className="bg-border/30" />
-
-      <h3 className="text-xs font-medium text-foreground">Example AI interactions</h3>
-      <div className="flex flex-col gap-4">
-        {EXAMPLE_SUGGESTIONS.map((s) => (
-          <div key={s.id} className="rounded-lg border border-border/50 bg-card/50 p-4">
-            <div className="mb-3 flex items-start gap-2">
-              <Users className="mt-0.5 size-3.5 text-muted-foreground" aria-hidden="true" />
-              <p className="text-xs text-foreground">{s.prompt}</p>
-            </div>
-            <div className="ml-5.5 flex flex-col gap-2 rounded-md bg-primary/5 p-3">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="size-3 text-primary" aria-hidden="true" />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary">
-                  AI Coach
-                </span>
-              </div>
-              <div className="grid gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                <p><span className="font-mono font-medium text-foreground">WHY</span> {s.response.why}</p>
-                <p><span className="font-mono font-medium text-foreground">WHAT</span> {s.response.what}</p>
-                <p><span className="font-mono font-medium text-foreground">RISK</span> {s.response.risk}</p>
-                <p><span className="font-mono font-medium text-foreground">LINKS</span> {s.response.links}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Empty conversation state */}
+      <div className="flex flex-col items-center gap-2 py-6 text-center">
+        <Brain className="size-6 text-muted-foreground/30" aria-hidden="true" />
+        <p className="text-xs text-muted-foreground">No conversations yet. The AI Coach will surface insights as your team works.</p>
       </div>
     </div>
   )
@@ -346,27 +326,15 @@ function ProjectFolderZone() {
 
       <Separator className="bg-border/30" />
 
-      {/* Threaded comment demo */}
+      {/* Threaded comments — empty state */}
       <div>
         <h3 className="mb-2 text-xs font-medium text-foreground">Threaded comments</h3>
-        <div className="rounded-lg border border-border/50 bg-card/50 p-3">
-          <div className="flex items-start gap-2 mb-2">
-            <div className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">AC</div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] text-foreground">
-                Should we use REST or GraphQL for the API?
-              </span>
-              <span className="text-[10px] text-muted-foreground">Alex Chen, 2h ago</span>
-            </div>
-          </div>
-          <div className="ml-7 flex items-start gap-2 rounded-md bg-secondary/50 p-2">
-            <div className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-accent/10 text-[9px] font-bold text-accent">SR</div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] text-foreground">
-                REST for speed. We only have 32 hours and GraphQL adds setup overhead.
-              </span>
-              <span className="text-[10px] text-muted-foreground">Sam Rivera, 1h ago</span>
-            </div>
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <MessageSquare className="size-5 text-muted-foreground/30" aria-hidden="true" />
+            <p className="text-[11px] text-muted-foreground">
+              No comments yet. As your team adds files, threaded conversations will appear here for each artifact.
+            </p>
           </div>
           {/* TODO: Wire threaded comments to POST /api/files/:fileId/comments */}
         </div>
@@ -391,34 +359,38 @@ function RoleWorkspacesZone() {
         description="Each role sees filtered tasks, relevant files, and role-specific chat. Switch perspectives to understand what each teammate is focused on."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {roles.map((m) => (
-          <button
-            key={m.id}
-            className="flex flex-col gap-2 rounded-lg border border-border/50 bg-card/50 p-4 text-left transition-colors hover:border-primary/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => {
-              // TODO: Open role-specific workspace view
-              toast.info(`Opening ${m.role} workspace for ${m.name}.`)
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
-              <div className={`size-2 rounded-full ${m.status === 'online' ? 'bg-primary' : m.status === 'idle' ? 'bg-accent' : 'bg-muted-foreground/40'}`} aria-hidden="true" />
-            </div>
-            <span className="text-xs font-medium text-foreground">{m.name}</span>
-            <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <FileText className="size-3" aria-hidden="true" />
-                <span>3 files assigned</span>
+      {roles.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {roles.map((m) => (
+            <button
+              key={m.id}
+              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-card/50 p-4 text-left transition-colors hover:border-primary/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => {
+                // TODO: Open role-specific workspace view
+                toast.info(`Opening ${m.role} workspace for ${m.name}.`)
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
+                <div className={`size-2 rounded-full ${m.status === 'online' ? 'bg-primary' : m.status === 'idle' ? 'bg-accent' : 'bg-muted-foreground/40'}`} aria-hidden="true" />
               </div>
-              <div className="flex items-center gap-1.5">
-                <MessageSquare className="size-3" aria-hidden="true" />
-                <span>Role chat active</span>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
+              <span className="text-xs font-medium text-foreground">{m.name}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {m.commitmentComplete ? 'Commitment complete' : 'Commitment pending'}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <UserCog className="size-5 text-muted-foreground/30" aria-hidden="true" />
+            <p className="text-[11px] text-muted-foreground">
+              No roles claimed yet. Once team members select their roles, their dedicated workspaces will appear here.
+            </p>
+          </div>
+        </div>
+      )}
 
       {hackathon.members.filter((m) => !m.role).length > 0 && (
         <div className="rounded-md border border-dashed border-border/50 bg-card/30 p-3">
@@ -457,26 +429,35 @@ function LiveFeedZone() {
       />
 
       {/* TODO: Subscribe to real-time activity events via WebSocket/Supabase Realtime */}
-      <div className="flex flex-col gap-2">
-        {activity.map((event) => {
-          const Icon = typeIcons[event.type] || Radio
-          const ago = getRelativeTime(event.timestamp)
-          return (
-            <div key={event.id} className="flex items-start gap-3 rounded-md border border-border/50 bg-card/50 p-3">
-              <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary">
-                <Icon className="size-3 text-muted-foreground" aria-hidden="true" />
+      {activity.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {activity.map((event) => {
+            const Icon = typeIcons[event.type] || Radio
+            const ago = getRelativeTime(event.timestamp)
+            return (
+              <div key={event.id} className="flex items-start gap-3 rounded-md border border-border/50 bg-card/50 p-3">
+                <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary">
+                  <Icon className="size-3 text-muted-foreground" aria-hidden="true" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-foreground">
+                    <span className="font-medium">{event.actor}</span>{' '}
+                    {event.description}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{ago}</span>
+                </div>
               </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground">
-                  <span className="font-medium">{event.actor}</span>{' '}
-                  {event.description}
-                </span>
-                <span className="text-[10px] text-muted-foreground">{ago}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-6">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Radio className="size-5 text-muted-foreground/30" aria-hidden="true" />
+            <p className="text-xs text-muted-foreground">No activity yet. Events will appear here as your team takes actions — joining, committing, editing, and building.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -540,11 +521,15 @@ function PresentationStudioZone() {
 function SubmissionReadinessZone() {
   const { hackathon } = useWorkspace()
 
+  // These items track real states derived from workspace data
+  const hasAllRoles = hackathon.members.every((m) => m.role !== null)
+  const hasAllCommitments = hackathon.members.every((m) => m.commitmentComplete)
+
   const checklist = [
-    { label: 'Project description written', done: true },
+    { label: 'All team members have claimed a role', done: hasAllRoles },
+    { label: 'All commitments completed', done: hasAllCommitments },
     { label: 'Demo video recorded or live demo ready', done: false },
     { label: 'README and documentation complete', done: false },
-    { label: 'All team members listed', done: true },
     { label: 'Submission form fields filled', done: false },
     { label: 'End-to-end flow tested', done: false },
   ]
@@ -556,7 +541,7 @@ function SubmissionReadinessZone() {
       <ZoneHeader
         icon={CheckCircle2}
         title="Submission Readiness"
-        description="Track every requirement for a complete submission. Do not let a missing field cost you the hackathon."
+        description="Track every requirement for a complete submission. Items here reflect your actual workspace state."
       />
 
       <div className="rounded-lg border border-border/50 bg-card/50 p-3">
@@ -577,6 +562,14 @@ function SubmissionReadinessZone() {
           ))}
         </div>
       </div>
+
+      {doneCount === 0 && (
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            No submission items complete yet. This checklist will update automatically as your team progresses. Focus on building first — come back here before the deadline.
+          </p>
+        </div>
+      )}
 
       <ActionCard
         icon={Shield}

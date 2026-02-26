@@ -59,46 +59,10 @@ function persistNotes(notes: QuickNote[]) {
 }
 
 // ---------------------------------------------------------------------------
-// Mock activity feed (static for demo)
+// Activity feed — starts empty; populated by real events only
 // ---------------------------------------------------------------------------
-
-const MOCK_ACTIVITY: ActivityEvent[] = [
-  {
-    id: 'a1',
-    type: 'member-joined',
-    actor: 'Alex Chen',
-    description: 'joined the workspace',
-    timestamp: new Date(Date.now() - 3600_000).toISOString(),
-  },
-  {
-    id: 'a2',
-    type: 'commitment-saved',
-    actor: 'Sam Rivera',
-    description: 'committed as Frontend Lead',
-    timestamp: new Date(Date.now() - 2400_000).toISOString(),
-  },
-  {
-    id: 'a3',
-    type: 'ai-suggestion',
-    actor: 'AI Coach',
-    description: 'suggested breaking the API layer into two services',
-    timestamp: new Date(Date.now() - 1200_000).toISOString(),
-  },
-  {
-    id: 'a4',
-    type: 'hackathon-edited',
-    actor: 'Jordan Kim',
-    description: 'updated the hackathon end time',
-    timestamp: new Date(Date.now() - 600_000).toISOString(),
-  },
-  {
-    id: 'a5',
-    type: 'member-joined',
-    actor: 'Morgan Tao',
-    description: 'joined the workspace',
-    timestamp: new Date(Date.now() - 180_000).toISOString(),
-  },
-]
+// TODO: Replace with real-time activity subscription (e.g. Supabase Realtime)
+// that pushes actual events as they happen in the workspace.
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -112,7 +76,7 @@ interface WorkspaceProviderProps {
 export function WorkspaceProvider({ hackathon, children }: WorkspaceProviderProps) {
   const [activeZone, setActiveZone] = useState<WorkspaceZone>('mission-control')
   const [notes, setNotes] = useState<QuickNote[]>([])
-  const [activity] = useState<ActivityEvent[]>(MOCK_ACTIVITY)
+  const [activity] = useState<ActivityEvent[]>([])
 
   // Load notes from localStorage on mount (client only)
   useEffect(() => {
