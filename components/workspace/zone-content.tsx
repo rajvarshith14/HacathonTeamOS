@@ -16,6 +16,8 @@ import {
   MessageSquare,
   FolderTree,
   Shield,
+  ArrowRight,
+  Clock,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -58,13 +60,20 @@ function ZoneHeader({
   icon: Icon,
   title,
   description,
+  stage,
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
   description: string
+  stage?: string
 }) {
   return (
     <div className="mb-5 flex flex-col gap-1.5">
+      {stage && (
+        <span className="text-[9px] font-mono font-medium uppercase tracking-widest text-muted-foreground/50">
+          {stage}
+        </span>
+      )}
       <div className="flex items-center gap-2">
         <Icon className="size-4 text-primary" aria-hidden="true" />
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
@@ -106,54 +115,126 @@ function ActionCard({
 // ---------------------------------------------------------------------------
 
 function MissionControlZone() {
-  const { hackathon } = useWorkspace()
+  const { hackathon, setActiveZone } = useWorkspace()
   const online = hackathon.members.filter((m) => m.status === 'online').length
   const committed = hackathon.members.filter((m) => m.commitmentComplete).length
   const isSolo = hackathon.members.length <= 1
   const allCommitted = committed === hackathon.members.length
+  const hasRoles = hackathon.members.some((m) => m.role !== null)
+  const allRoles = hackathon.members.every((m) => m.role !== null)
+
+  // Determine the next action the team should take
+  function getNextAction(): { label: string; description: string; zone: WorkspaceZone } | null {
+    if (!hasRoles) {
+      return {
+        label: 'Claim roles',
+        description: 'No one has claimed a role yet. Assign roles so each member knows what to focus on.',
+        zone: 'role-workspaces',
+      }
+    }
+    if (!allRoles) {
+      return {
+        label: 'Finish role assignments',
+        description: `${hackathon.members.filter((m) => !m.role).length} member(s) still need a role. Complete assignments to unlock focused workspaces.`,
+        zone: 'role-workspaces',
+      }
+    }
+    if (!allCommitted) {
+      return {
+        label: 'Complete commitments',
+        description: `${hackathon.members.filter((m) => !m.commitmentComplete).length} member(s) have not completed their commitment yet.`,
+        zone: 'role-workspaces',
+      }
+    }
+    return null
+  }
+
+  const nextAction = getNextAction()
 
   return (
     <div className="flex flex-col gap-5">
-      <ZoneHeader
-        icon={LayoutDashboard}
-        title="Mission Control"
-        description="Your team's live status. Everything here reflects real activity — nothing is simulated."
-      />
-
-      {/* Team status */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-card/50 p-3">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Team members
-          </span>
-          <span className="text-lg font-bold text-foreground">
-            {online} <span className="text-sm font-normal text-muted-foreground">online</span>
-            <span className="text-sm font-normal text-muted-foreground"> / {hackathon.members.length} total</span>
-          </span>
+      {/* Mission header — the orienting statement */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <LayoutDashboard className="size-4 text-primary" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-foreground">Mission Control</h2>
         </div>
-        <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-card/50 p-3">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Commitments
-          </span>
-          {allCommitted ? (
-            <span className="text-lg font-bold text-primary">All complete</span>
-          ) : (
-            <span className="text-lg font-bold text-foreground">
-              {committed}<span className="text-sm font-normal text-muted-foreground"> of {hackathon.members.length} complete</span>
-            </span>
-          )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          This is your team's starting point. Everything below reflects the real state of your hackathon — no simulated data.
+        </p>
+      </div>
+
+      {/* Hackathon context block */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-foreground">{hackathon.hackathonName}</span>
+            <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider">
+              {hackathon.phase}
+            </Badge>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">Team</span>
+              <span className="text-xs text-foreground">{hackathon.teamName}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">Members</span>
+              <span className="text-xs text-foreground">
+                {online} online / {hackathon.members.length} total
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">Commitments</span>
+              <span className="text-xs text-foreground">
+                {allCommitted ? 'All complete' : `${committed} of ${hackathon.members.length}`}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Solo mode notice */}
       {isSolo && (
-        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+        <div className="rounded-lg border border-dashed border-accent/30 bg-accent/5 p-4">
           <div className="flex items-start gap-3">
-            <Users className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
+            <Users className="mt-0.5 size-4 text-accent" aria-hidden="true" />
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-foreground">You are working solo</span>
+              <span className="text-xs font-medium text-foreground">Solo mode</span>
               <span className="text-[11px] leading-relaxed text-muted-foreground">
-                You can invite teammates anytime by sharing your team invite code. The workspace works fine solo — collaboration features will activate when others join.
+                You are the only member. Everything works solo — invite teammates anytime by sharing your team code. Collaboration features activate when others join.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Next action — the single most important thing to do */}
+      {nextAction && (
+        <button
+          onClick={() => setActiveZone(nextAction.zone)}
+          className="group flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <ArrowRight className="size-3.5 text-primary" aria-hidden="true" />
+          </div>
+          <div className="flex flex-1 flex-col gap-0.5">
+            <span className="text-xs font-medium text-primary">Next step: {nextAction.label}</span>
+            <span className="text-[11px] leading-relaxed text-muted-foreground">{nextAction.description}</span>
+          </div>
+          <ArrowRight className="mt-1 size-3.5 text-primary/40 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </button>
+      )}
+
+      {/* All caught up state */}
+      {!nextAction && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 size-4 text-primary" aria-hidden="true" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-primary">Team is organized</span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">
+                All roles are assigned and commitments are complete. Navigate to the Project Folder to start building, or use the AI Coach for guidance.
               </span>
             </div>
           </div>
@@ -185,7 +266,7 @@ function MissionControlZone() {
                 {m.commitmentComplete ? (
                   <CheckCircle2 className="size-3.5 text-primary" aria-label="Commitment complete" />
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">Commitment pending</span>
+                  <span className="text-[10px] text-muted-foreground">Pending</span>
                 )}
               </div>
             </div>
@@ -193,29 +274,32 @@ function MissionControlZone() {
         </div>
       </div>
 
-      {/* Getting started guidance — only show when workspace is fresh */}
-      {!allCommitted && (
-        <div className="rounded-lg border border-border/50 bg-card/50 p-4">
-          <h3 className="mb-2 text-xs font-medium text-foreground">Getting started</h3>
-          <div className="flex flex-col gap-2 text-[11px] leading-relaxed text-muted-foreground">
-            <p>This workspace becomes more useful as your team takes action. Here is what contributes to team readiness:</p>
-            <ul className="flex flex-col gap-1.5 ml-3">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                <span>Each member claims a role and completes their commitment</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                <span>Project artifacts are added to the Project Folder</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                <span>The AI Coach observes enough activity to offer meaningful suggestions</span>
-              </li>
-            </ul>
-          </div>
+      {/* Workspace flow explanation — always visible as orientation */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-4">
+        <h3 className="mb-3 text-xs font-medium text-foreground">How this workspace works</h3>
+        <div className="flex flex-col gap-2">
+          {([
+            { step: 'Orient',    desc: 'Understand the mission and current team state',          zone: 'mission-control' as WorkspaceZone },
+            { step: 'Organize',  desc: 'Assign roles and complete commitments',                   zone: 'role-workspaces' as WorkspaceZone },
+            { step: 'Build',     desc: 'Add project files and track progress in the live feed',   zone: 'project-folder' as WorkspaceZone },
+            { step: 'Deliver',   desc: 'Prepare the demo and verify submission requirements',     zone: 'submission-readiness' as WorkspaceZone },
+          ]).map((s, i) => (
+            <button
+              key={s.step}
+              onClick={() => setActiveZone(s.zone)}
+              className="flex items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-mono font-bold text-muted-foreground">
+                {i + 1}
+              </span>
+              <div className="flex flex-col gap-0">
+                <span className="text-[11px] font-medium text-foreground">{s.step}</span>
+                <span className="text-[10px] text-muted-foreground">{s.desc}</span>
+              </div>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -229,7 +313,8 @@ function SharedAIZone() {
     <div className="flex flex-col gap-5">
       <ZoneHeader
         icon={Brain}
-        title="Shared AI"
+        title="AI Coach"
+        stage="Organize"
         description="Every prompt and response is visible to the whole team. The AI Coach builds on everyone's thinking — no siloed conversations."
       />
 
@@ -305,6 +390,7 @@ function ProjectFolderZone() {
       <ZoneHeader
         icon={FolderOpen}
         title="Project Folder"
+        stage="Build"
         description="Shared file structure with threaded comments. Every artifact is organized, versioned, and visible to the team."
       />
 
@@ -356,6 +442,7 @@ function RoleWorkspacesZone() {
       <ZoneHeader
         icon={UserCog}
         title="Role Workspaces"
+        stage="Organize"
         description="Each role sees filtered tasks, relevant files, and role-specific chat. Switch perspectives to understand what each teammate is focused on."
       />
 
@@ -425,6 +512,7 @@ function LiveFeedZone() {
       <ZoneHeader
         icon={Radio}
         title="Live Feed"
+        stage="Build"
         description="Real-time stream of everything happening in this workspace. Decisions, commits, and AI insights all in one timeline."
       />
 
@@ -467,38 +555,33 @@ function LiveFeedZone() {
 // ---------------------------------------------------------------------------
 
 function PresentationStudioZone() {
+  const { hackathon } = useWorkspace()
+  const isEarlyPhase = hackathon.phase === 'planning' || hackathon.phase === 'build'
+
   return (
     <div className="flex flex-col gap-5">
       <ZoneHeader
         icon={Presentation}
         title="Presentation Studio"
+        stage="Deliver"
         description="Build your demo script and slides. The AI Coach helps structure your narrative and identifies gaps in your story."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ActionCard
-          icon={FileText}
-          label="Generate demo script"
-          description="AI creates a structured walkthrough based on your current artifacts."
-          onClick={() => {
-            // TODO: POST /api/ai/demo-script with project artifacts
-            toast.info('AI would generate a demo script from your project artifacts.')
-          }}
-        />
-        <ActionCard
-          icon={Eye}
-          label="Preview presentation"
-          description="Run through your slides and demo flow in presentation mode."
-          onClick={() => {
-            // TODO: Open presentation preview overlay
-            toast.info('Presentation preview would show your slides and flow.')
-          }}
-        />
-      </div>
+      {isEarlyPhase && (
+        <div className="rounded-lg border border-dashed border-border/50 bg-card/30 p-4">
+          <div className="flex items-start gap-3">
+            <Clock className="mt-0.5 size-4 text-muted-foreground/60" aria-hidden="true" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">Not yet — focus on building first</span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">
+                This zone becomes useful once you have project artifacts to present. Right now you are in the {hackathon.phase} phase. When you are closer to the deadline, the AI Coach will help you structure a compelling demo.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Separator className="bg-border/30" />
-
-      {/* Mock slide outline */}
+      {/* Slide outline — always shown as a structural reference */}
       <div>
         <h3 className="mb-2 text-xs font-medium text-foreground">Suggested slide outline</h3>
         <div className="flex flex-col gap-1">
@@ -510,6 +593,29 @@ function PresentationStudioZone() {
           ))}
         </div>
       </div>
+
+      {!isEarlyPhase && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ActionCard
+            icon={FileText}
+            label="Generate demo script"
+            description="AI creates a structured walkthrough based on your current artifacts."
+            onClick={() => {
+              // TODO: POST /api/ai/demo-script with project artifacts
+              toast.info('AI would generate a demo script from your project artifacts.')
+            }}
+          />
+          <ActionCard
+            icon={Eye}
+            label="Preview presentation"
+            description="Run through your slides and demo flow in presentation mode."
+            onClick={() => {
+              // TODO: Open presentation preview overlay
+              toast.info('Presentation preview would show your slides and flow.')
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -541,6 +647,7 @@ function SubmissionReadinessZone() {
       <ZoneHeader
         icon={CheckCircle2}
         title="Submission Readiness"
+        stage="Deliver"
         description="Track every requirement for a complete submission. Items here reflect your actual workspace state."
       />
 

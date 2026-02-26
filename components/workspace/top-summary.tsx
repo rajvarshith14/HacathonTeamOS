@@ -12,25 +12,19 @@ import {
   TooltipContent,
 } from '@/components/ui/tooltip'
 import { useWorkspace } from '@/lib/workspace-context'
-import type { OnboardingState, Phase } from '@/lib/workspace-types'
+import type { Phase } from '@/lib/workspace-types'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const PHASE_LABELS: Record<Phase, string> = {
-  planning: 'Planning',
-  build: 'Build',
-  submission: 'Submission',
-  presentation: 'Presentation',
-}
-
-const ONBOARDING_LABELS: Record<OnboardingState, string> = {
-  'solo-mode': 'Solo Mode',
-  'team-forming': 'Team Forming',
-  'commitments-in-progress': 'Commitments In Progress',
-  'onboarding-complete': 'Onboarding Complete',
-}
+// Lifecycle phases in order — matches the nav rail stages
+const LIFECYCLE_PHASES: { id: Phase; label: string }[] = [
+  { id: 'planning',      label: 'Plan' },
+  { id: 'build',         label: 'Build' },
+  { id: 'submission',    label: 'Submit' },
+  { id: 'presentation',  label: 'Present' },
+]
 
 function formatCountdown(ms: number): { h: string; m: string; s: string } {
   if (ms <= 0) return { h: '00', m: '00', s: '00' }
@@ -77,7 +71,7 @@ export function TopSummary() {
   const countdown = formatCountdown(remaining)
   const timerColor = urgencyClass(remaining, totalDuration)
 
-  const isOnboardingComplete = hackathon.onboardingState === 'onboarding-complete'
+  const currentPhaseIndex = LIFECYCLE_PHASES.findIndex((p) => p.id === hackathon.phase)
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/50 bg-card/50 px-4 py-2.5">
@@ -99,17 +93,38 @@ export function TopSummary() {
         <span className="text-muted-foreground">{hackathon.hackathonName}</span>
       </div>
 
-      {/* Phase badge */}
-      <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider">
-        {PHASE_LABELS[hackathon.phase]}
-      </Badge>
+      {/* Phase progress — linear steps */}
+      <div className="hidden items-center gap-1 sm:flex" role="list" aria-label="Hackathon phase progress">
+        {LIFECYCLE_PHASES.map((phase, i) => {
+          const isCurrent = i === currentPhaseIndex
+          const isPast = i < currentPhaseIndex
+          return (
+            <div key={phase.id} className="flex items-center gap-1" role="listitem">
+              {i > 0 && (
+                <div
+                  className={`h-px w-3 ${isPast ? 'bg-primary/40' : 'bg-border/50'}`}
+                  aria-hidden="true"
+                />
+              )}
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  isCurrent
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : isPast
+                      ? 'text-primary/50'
+                      : 'text-muted-foreground/40'
+                }`}
+              >
+                {phase.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
 
-      {/* Onboarding state badge */}
-      <Badge
-        variant={isOnboardingComplete ? 'default' : 'outline'}
-        className="text-[10px] font-mono uppercase tracking-wider"
-      >
-        {ONBOARDING_LABELS[hackathon.onboardingState]}
+      {/* Mobile: simple phase badge */}
+      <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider sm:hidden">
+        {LIFECYCLE_PHASES[currentPhaseIndex]?.label ?? hackathon.phase}
       </Badge>
 
       {/* Spacer */}
